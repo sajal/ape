@@ -9,26 +9,29 @@ from tests.integration.cli.utils import skip_projects_except
 
 BASE_PROJECTS_PATH = Path(__file__).parent / "projects"
 TOKEN_B_GAS_REPORT = r"""
-                         TokenB Gas
+ +TokenB Gas
 
-  Method     Times called    Min.    Max.    Mean   Median
- ──────────────────────────────────────────────────────────
-  transfer              \d   \d+   \d+   \d+    \d+
+  Method +Times called +Min. +Max. +Mean +Median
+ ─+
+  balanceOf +\d +\d+ + \d+ + \d+ + \d+
+  transfer +\d +\d+ + \d+ + \d+ + \d+
 """
 EXPECTED_GAS_REPORT = rf"""
-                      TestContractVy Gas
+ +TestContractVy Gas
 
-  Method       Times called    Min.    Max.    Mean   Median
- ────────────────────────────────────────────────────────────
-  setNumber               \d   \d+   \d+   \d+    \d+
-  fooAndBar               \d   \d+   \d+   \d+    \d+
-  setAddress              \d   \d+   \d+   \d+    \d+
+  Method +Times called +Min. +Max. +Mean +Median
+ ─+
+  myNumber +\d +\d+ + \d+ + \d+ + \d+
+  setNumber +\d +\d+ + \d+ + \d+ + \d+
+  fooAndBar +\d +\d+ + \d+ + \d+ + \d+
+  setAddress +\d +\d+ + \d+ + \d+ + \d+
 
-                         TokenA Gas
+ +TokenA Gas
 
-  Method     Times called    Min.    Max.    Mean   Median
- ──────────────────────────────────────────────────────────
-  transfer              \d   \d+   \d+   \d+    \d+
+  Method +Times called +Min. +Max. +Mean +Median
+ ─+
+  balanceOf +\d +\d+ + \d+ + \d+ + \d+
+  transfer +\d +\d+ + \d+ + \d+ + \d+
 {TOKEN_B_GAS_REPORT}
 """
 GETH_LOCAL_CONFIG = f"""
@@ -94,26 +97,30 @@ def run_gas_test(result, expected_number_passed: int, expected_report: str = EXP
         pytest.xfail(f"Expected contains more than actual:\n{remainder}")
 
     for actual_line, expected_line in zip(actual, expected):
-        assert re.match(expected_line, actual_line)
+        message = f"'{actual_line}' does not match pattern '{expected_line}'."
+        assert re.match(expected_line, actual_line), message
 
 
 @skip_projects_except("test", "with-contracts")
-def test_test(networks, setup_pytester, project, pytester):
+def test_test(networks, setup_pytester, project, pytester, eth_tester_provider):
+    _ = eth_tester_provider  # Ensure using EthTester for this test.
     expected_test_passes = setup_pytester(project.path.name)
     result = pytester.runpytest()
     result.assert_outcomes(passed=expected_test_passes), "\n".join(result.outlines)
 
 
 @skip_projects_except("test", "with-contracts")
-def test_test_isolation_disabled(setup_pytester, project, pytester):
+def test_test_isolation_disabled(setup_pytester, project, pytester, eth_tester_provider):
     # check the disable isolation option actually disables built-in isolation
+    _ = eth_tester_provider  # Ensure using EthTester for this test.
     setup_pytester(project.path.name)
     result = pytester.runpytest("--disable-isolation", "--setup-show")
     assert "F _function_isolation" not in "\n".join(result.outlines)
 
 
 @skip_projects_except("test", "with-contracts")
-def test_fixture_docs(setup_pytester, project, pytester):
+def test_fixture_docs(setup_pytester, project, pytester, eth_tester_provider):
+    _ = eth_tester_provider  # Ensure using EthTester for this test.
     result = pytester.runpytest("-q", "--fixtures")
 
     # 'accounts', 'networks', 'chain', and 'project' (etc.)
@@ -125,7 +132,8 @@ def test_fixture_docs(setup_pytester, project, pytester):
 
 
 @skip_projects_except("test")
-def test_gas_flag_when_not_supported(setup_pytester, project, pytester):
+def test_gas_flag_when_not_supported(setup_pytester, project, pytester, eth_tester_provider):
+    _ = eth_tester_provider  # Ensure using EthTester for this test.
     setup_pytester(project.path.name)
     result = pytester.runpytest("--gas")
     assert (
@@ -167,7 +175,7 @@ def test_gas_flag_set_in_config(geth_provider, setup_pytester, project, pytester
 @skip_projects_except("geth")
 def test_gas_flag_exclude_method_using_cli_option(geth_provider, setup_pytester, project, pytester):
     expected_test_passes = setup_pytester(project.path.name)
-    line = "\n  fooAndBar               \\d   \\d+   \\d+   \\d+    \\d+"
+    line = "\n  fooAndBar +\\d +\\d+ + \\d+ + \\d+ + \\d+"
     expected = EXPECTED_GAS_REPORT.replace(line, "")
     result = pytester.runpytest("--gas", "--gas-exclude", "*:fooAndBar")
     run_gas_test(result, expected_test_passes, expected_report=expected)
@@ -179,7 +187,7 @@ def test_gas_flag_exclusions_set_in_config(
     geth_provider, setup_pytester, project, pytester, switch_config
 ):
     expected_test_passes = setup_pytester(project.path.name)
-    line = "\n  fooAndBar               \\d   \\d+   \\d+   \\d+    \\d+"
+    line = "\n  fooAndBar +\\d +\\d+ + \\d+ + \\d+ + \\d+"
     expected = EXPECTED_GAS_REPORT.replace(line, "")
     expected = expected.replace(TOKEN_B_GAS_REPORT, "")
     config_content = rf"""

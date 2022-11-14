@@ -850,6 +850,32 @@ class Web3Provider(ProviderAPI, ABC):
             str: The result of the transaction call.
         """
 
+        if (
+            not isinstance(self, TestProviderAPI)
+            or not self.chain_manager._reports.track_gas
+            or not txn.receiver
+        ):
+            return self._send_call(txn, **kwargs)
+
+        # Handle call tree, if trace handlers set.
+        # For example, this is used for capturing gas usage in view calls
+        # during tests when the `--gas` flag was set.
+
+        try:
+            with self.chain_manager.isolate():
+                account = self.account_manager.test_accounts[0]
+                receipt = account.call(txn)
+                call_tree = receipt.call_tree
+                if not call_tree:
+                    return self._send_call(txn, **kwargs)
+
+                receipt.track_gas()
+                return call_tree.returndata
+
+        except APINotImplementedError:
+            return self._send_call(txn, **kwargs)
+
+    def _send_call(self, txn: TransactionAPI, **kwargs) -> bytes:
         try:
             block_id = kwargs.pop("block_identifier", None)
             state = kwargs.pop("state_override", None)

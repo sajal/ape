@@ -1220,7 +1220,7 @@ class ChainManager(BaseManager):
                 or start_network_name != end_network_name
                 or start_provider_name != end_provider_name
             ):
-                logger.warning("Provider changed before could complete isolation.")
+                logger.warning("Provider changed before isolation completed.")
                 return
 
             self.chain_manager.restore(snapshot)
